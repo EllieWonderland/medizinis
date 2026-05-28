@@ -19,7 +19,7 @@ export function useUserSettings() {
     if (settings) {
       setHerbBalance(settings.global_herb_balance);
     }
-  }, [settings?.global_herb_balance]);
+  }, [settings?.global_herb_balance, setHerbBalance]);
 
   // Creates default settings row if none exists yet
   const ensureSettings = useCallback(async () => {

@@ -85,8 +85,8 @@ export function ConfirmIntakeModal() {
       await confirmIntake(id);
     }
 
-    // Advance medizini progress
-    const { advanced, newStage: stage } = await confirmDoseProgress();
+    // Advance medizini progress once per confirmed medication
+    const { advanced, newStage: stage } = await confirmDoseProgress(checkedIds.size);
     if (advanced && stage) setNewStage(stage);
 
     // Award herbs

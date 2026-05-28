@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Pressable, ScrollView, Dimensions } from 'react-native';
+import { StyleSheet, View, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BookOpen, Award, Info, Lock, X, Check } from 'lucide-react-native';
+import { BookOpen, Award, Lock, X } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -144,7 +144,7 @@ export default function MediziniBuchScreen() {
                   </ThemedText>
                   
                   <ThemedText type="code" style={{ fontSize: 10, color: theme.textSecondary }}>
-                    {pet.discovered ? pet.scientificName : 'Undentdeckt'}
+                    {pet.discovered ? pet.scientificName : 'Unentdeckt'}
                   </ThemedText>
                 </Pressable>
               );

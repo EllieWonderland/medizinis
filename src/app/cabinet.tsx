@@ -14,7 +14,6 @@ import {
   Plus,
   Calendar,
   FileText,
-  ChevronRight,
   AlertTriangle,
   X,
   Camera,

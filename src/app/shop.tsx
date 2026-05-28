@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Pressable, ScrollView, FlatList, Dimensions } from 'react-native';
+import { StyleSheet, View, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Leaf, Lock, CheckCircle2, AlertCircle } from 'lucide-react-native';
 
@@ -7,9 +7,11 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
+import { useAppStore } from '@/store';
 
 export default function ShopScreen() {
   const theme = useTheme();
+  const herbBalance = useAppStore((s) => s.herbBalance);
   const [activeCategory, setActiveCategory] = useState<'Bett' | 'Boden' | 'Wand' | 'Deko'>('Bett');
   
   // Custom categories list
@@ -114,7 +116,7 @@ export default function ShopScreen() {
             <View style={[styles.currencyBadge, { backgroundColor: theme.backgroundElement }]}>
               <Leaf size={16} color={theme.accent} fill={theme.accent} />
               <ThemedText type="smallBold" style={{ color: theme.text, marginLeft: Spacing.one }}>
-                120 Kräuter
+                {herbBalance} Kräuter
               </ThemedText>
             </View>
           </View>

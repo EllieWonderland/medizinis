@@ -30,6 +30,17 @@ Nach jeder Phase muss ein Commit und Push auf https://github.com/EllieWonderland
     - **Commit-Notiz:** `feat: calculate dose progression with custom 4 AM night-owl offset logic`
   - `[x]` Ernten von Heilkräutern und Zuweisung zum globalen Zustand-Store.
     - **Commit-Notiz:** `feat: credit harvested herbs currency to global account upon intake success`
+- `[x]` Review & Bugfixes (nach Phase 3)
+  - `[x]` Starter-Medizini wird automatisch beim App-Start angelegt (DB war leer → Core Loop kaputt).
+  - `[x]` `confirmDoseProgress` zählt jetzt pro Medikament, nicht pauschal +1 pro Session.
+  - `[x]` „Heute/Morgen"-Label bei Nächste-Dosis-Anzeige korrigiert (`getNextDoseInfo` gibt jetzt `isTomorrow` zurück).
+  - `[x]` Shop-Screen zeigt echtes Heilkräuter-Guthaben aus Zustand statt hartkodierten 120.
+  - `[x]` Migrations-Fehler zeigt jetzt eine lesbare Fehlermeldung statt ewigem Ladekreis.
+  - `[x]` Benachrichtigungen werden nur noch neu geplant wenn Name oder Reminder-Times sich ändern (nicht bei `last_taken_at`).
+  - `[x]` Tippfehler „Undentdeckt" → „Unentdeckt" in Medizini-Buch.
+  - `[x]` Unbenutzte Imports bereinigt (`ChevronRight`, `FlatList`, `Dimensions`, `Info`, `Check`).
+  - `[x]` Fehlende `setHerbBalance`-Dependency im `useEffect` von `use-user-settings.ts` ergänzt.
+    - **Commit-Notiz:** `fix: resolve phase 3 bugs — medizini seeding, dose progress count, next-dose label, shop balance, and cleanup`
 - `[ ]` Phase 4: Gamification & Shop
   - `[ ]` Interaktion: Swipe-Geste zum Streicheln des Medizinis implementieren.
     - **Commit-Notiz:** `feat: implement react-native-gesture-handler swipe-to-pet interaction for medizinis`

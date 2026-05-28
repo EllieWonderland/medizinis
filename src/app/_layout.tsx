@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { useColorScheme, View, ActivityIndicator } from 'react-native';
+import { useColorScheme, View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -22,11 +22,19 @@ export default function TabLayout() {
 
   if (error) {
     console.error('[DB] Migration failed:', error);
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorTitle}>Datenbankfehler</Text>
+        <Text style={styles.errorBody}>
+          Die Datenbank konnte nicht initialisiert werden. Bitte starte die App neu.
+        </Text>
+      </View>
+    );
   }
 
   if (!success) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -39,3 +47,22 @@ export default function TabLayout() {
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  errorBody: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: '#666',
+  },
+});

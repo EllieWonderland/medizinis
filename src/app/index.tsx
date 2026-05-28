@@ -25,7 +25,7 @@ import { rescheduleAllNotifications } from '@/lib/notifications';
 
 export default function ZimmerScreen() {
   const theme = useTheme();
-  const { medizini, progressPercent, confirmDoseProgress } = useMedizini();
+  const { medizini, progressPercent } = useMedizini();
   const { medications } = useMedications();
   const { settings } = useUserSettings();
   const herbBalance = useAppStore((s) => s.herbBalance);
@@ -34,11 +34,15 @@ export default function ZimmerScreen() {
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
 
-  // Reschedule all notifications whenever the medication list changes
+  // Reschedule notifications only when names or reminder times change, not on every stock/intake update.
+  const notificationKey = medications
+    .map((m) => `${m.id}:${m.name}:${m.reminder_times.join(',')}`)
+    .join('|');
   useEffect(() => {
     if (medications.length === 0) return;
     rescheduleAllNotifications(medications).catch(console.error);
-  }, [medications]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notificationKey]);
 
   const triggerWobble = () => {
     rotation.value = withSequence(
@@ -224,7 +228,7 @@ export default function ZimmerScreen() {
             <View style={styles.infoRow}>
               <AlertCircle size={16} color={theme.textSecondary} />
               <ThemedText type="small" themeColor="textSecondary" style={{ marginLeft: Spacing.one }}>
-                Nächste Dosis: Heute, {nextDose.timeLabel} ({nextDose.name})
+                Nächste Dosis: {nextDose.isTomorrow ? 'Morgen' : 'Heute'}, {nextDose.timeLabel} ({nextDose.name})
               </ThemedText>
             </View>
           )}

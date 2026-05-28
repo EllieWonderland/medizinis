@@ -24,10 +24,10 @@ type MedForNextDose = { name: string; reminder_times: string[] };
 
 export function getNextDoseInfo(
   medications: MedForNextDose[]
-): { timeLabel: string; name: string } | null {
+): { timeLabel: string; name: string; isTomorrow: boolean } | null {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  let closest: { diffMinutes: number; timeLabel: string; name: string } | null = null;
+  let closest: { diffMinutes: number; timeLabel: string; name: string; isTomorrow: boolean } | null = null;
 
   for (const med of medications) {
     for (const time of med.reminder_times) {
@@ -36,16 +36,17 @@ export function getNextDoseInfo(
       const m = parseInt(minuteStr, 10);
       if (isNaN(h) || isNaN(m)) continue;
 
-      let diff = h * 60 + m - currentMinutes;
-      if (diff < 0) diff += 24 * 60;
+      const rawDiff = h * 60 + m - currentMinutes;
+      const isTomorrow = rawDiff < 0;
+      const diff = isTomorrow ? rawDiff + 24 * 60 : rawDiff;
 
       if (!closest || diff < closest.diffMinutes) {
-        closest = { diffMinutes: diff, timeLabel: `${time} Uhr`, name: med.name };
+        closest = { diffMinutes: diff, timeLabel: `${time} Uhr`, name: med.name, isTomorrow };
       }
     }
   }
 
-  return closest ? { timeLabel: closest.timeLabel, name: closest.name } : null;
+  return closest ? { timeLabel: closest.timeLabel, name: closest.name, isTomorrow: closest.isTomorrow } : null;
 }
 
 export const STAGE_ORDER = ['Egg', 'Baby', 'Child', 'Teen', 'Adult'] as const;
