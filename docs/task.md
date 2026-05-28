@@ -4,12 +4,12 @@ Hier ist unsere Liste für die Entwicklung von **Medizinis**. Die Aufgaben basie
 
 - `[x]` Review der Anforderungen & Anpassung des Techstacks auf Drizzle ORM + Expo SQLite
   *   **Commit-Notiz:** `docs: update techstack and roadmap to Drizzle ORM and Expo SQLite`
-- `[ ]` Phase 1: Foundation & UI-Skelett
-  - `[ ]` Setup des Expo-Projekts mit TypeScript und der Ordnerstruktur.
+- `[x]` Phase 1: Foundation & UI-Skelett
+  - `[x]` Setup des Expo-Projekts mit TypeScript und der Ordnerstruktur.
     *   **Commit-Notiz:** `chore: initialize expo project with typescript and custom folder structure`
-  - `[ ]` Setup des `Expo Routers` mit Tab-Navigation (Home/Zimmer, Medizinschrank, Apotheke, Buch).
+  - `[x]` Setup des `Expo Routers` mit Tab-Navigation (Home/Zimmer, Medizinschrank, Apotheke, Buch).
     *   **Commit-Notiz:** `feat: configure expo router with tabs for Home, Cabinet, Shop, and Book`
-  - `[ ]` Erstellung statischer UI-Dummys für alle Screens ohne Logik.
+  - `[x]` Erstellung statischer UI-Dummys für alle Screens ohne Logik.
     *   **Commit-Notiz:** `feat: create static UI mockups for all navigation tab screens`
 - `[ ]` Phase 2: Offline-First Architektur
   - `[ ]` Setup von `Drizzle ORM` + `Expo SQLite` und Definition der Schemata (UserSettings, Medications, Medizinis, RoomState).
