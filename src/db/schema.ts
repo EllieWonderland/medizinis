@@ -14,6 +14,7 @@ export const medicationsTable = sqliteTable('medications', {
   package_size: int().notNull(),
   current_stock: int().notNull(),
   image_uri: text(), // local file path for Beipackzettel photo
+  last_taken_at: int({ mode: 'timestamp' }),
 });
 
 export const medizinisTable = sqliteTable('medizinis', {

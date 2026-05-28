@@ -1,29 +1,45 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Pressable, ScrollView, Dimensions, Platform } from 'react-native';
+import { StyleSheet, View, Pressable, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  withSequence, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
   withRepeat,
-  Easing
+  Easing,
 } from 'react-native-reanimated';
-import { Leaf, Gift, AlertCircle, Heart } from 'lucide-react-native';
+import { Leaf, AlertCircle, Heart } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ConfirmIntakeModal } from '@/components/confirm-intake-modal';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
+import { useMedizini } from '@/hooks/use-medizini';
+import { useMedications } from '@/hooks/use-medications';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useAppStore } from '@/store';
+import { getNextDoseInfo, STAGE_EMOJIS, STAGE_LABELS, isDoseTakenToday, type MediziniStage } from '@/lib/dose-logic';
+import { rescheduleAllNotifications } from '@/lib/notifications';
 
 export default function ZimmerScreen() {
   const theme = useTheme();
-  
-  // Animation values for the Egg
+  const { medizini, progressPercent, confirmDoseProgress } = useMedizini();
+  const { medications } = useMedications();
+  const { settings } = useUserSettings();
+  const herbBalance = useAppStore((s) => s.herbBalance);
+  const openOverlay = useAppStore((s) => s.openOverlay);
+
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
-  
-  // Wobble animation when clicking on the Egg or on mount
+
+  // Reschedule all notifications whenever the medication list changes
+  useEffect(() => {
+    if (medications.length === 0) return;
+    rescheduleAllNotifications(medications).catch(console.error);
+  }, [medications]);
+
   const triggerWobble = () => {
     rotation.value = withSequence(
       withTiming(-8, { duration: 100, easing: Easing.linear }),
@@ -40,7 +56,6 @@ export default function ZimmerScreen() {
   };
 
   useEffect(() => {
-    // Initial gentle pulsing of the egg
     scale.value = withRepeat(
       withSequence(
         withTiming(1.03, { duration: 1200, easing: Easing.ease }),
@@ -51,23 +66,39 @@ export default function ZimmerScreen() {
     );
   }, []);
 
-  const eggAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { scale: scale.value },
-        { rotate: `${rotation.value}deg` }
-      ]
-    };
-  });
+  const eggAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { rotate: `${rotation.value}deg` }],
+  }));
+
+  // Derived display data
+  const stage = (medizini?.current_stage ?? 'Egg') as MediziniStage;
+  const stageEmoji = STAGE_EMOJIS[stage];
+  const stageLabel = STAGE_LABELS[stage];
+  const doseProgress = medizini?.current_doses_progress ?? 0;
+  const doseTarget = medizini?.target_doses_for_next_stage ?? 7;
+
+  const cutoffHour = settings?.day_cutoff_hour ?? 4;
+  const dueMedsCount = medications.filter(
+    (m) => !isDoseTakenToday(m.last_taken_at as Date | null, cutoffHour)
+  ).length;
+  const allTakenToday = medications.length > 0 && dueMedsCount === 0;
+
+  const nextDose = getNextDoseInfo(medications);
+
+  const owlMessage = allTakenToday
+    ? 'Super! Du hast heute alle Medikamente genommen. Dein Medizini ist stolz auf dich!'
+    : dueMedsCount > 0
+    ? `${dueMedsCount} Medikament${dueMedsCount > 1 ? 'e' : ''} noch offen. Vergiss deine Heilenergie nicht!`
+    : 'Hallo Abenteurer! Dein Ei schläft friedlich. Wenn du heute deine Heilenergie sammelst, wächst es weiter!';
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent} 
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Bar */}
+          {/* Header */}
           <View style={styles.header}>
             <View>
               <ThemedText type="small" themeColor="textSecondary">Guten Morgen ✨</ThemedText>
@@ -76,7 +107,7 @@ export default function ZimmerScreen() {
             <View style={[styles.currencyBadge, { backgroundColor: theme.backgroundElement }]}>
               <Leaf size={16} color={theme.accent} fill={theme.accent} />
               <ThemedText type="smallBold" style={{ color: theme.text, marginLeft: Spacing.one }}>
-                120 Kräuter
+                {herbBalance} Kräuter
               </ThemedText>
             </View>
           </View>
@@ -90,15 +121,14 @@ export default function ZimmerScreen() {
               <View style={styles.npcSpeechBubble}>
                 <ThemedText type="smallBold" themeColor="primary">Eule Hedwig</ThemedText>
                 <ThemedText type="small" themeColor="text" style={styles.npcMessage}>
-                  "Hallo Abenteurer! Dein Ei schläft friedlich. Wenn du heute deine Heilenergie sammelst, wächst es ein Stückchen weiter!"
+                  "{owlMessage}"
                 </ThemedText>
               </View>
             </View>
           </ThemedView>
 
-          {/* MediziniRoom Visual Area */}
+          {/* Room Visual Area */}
           <View style={[styles.roomContainer, { borderColor: theme.backgroundElement }]}>
-            {/* Visual Slots Placeholder representing room deco */}
             <View style={styles.roomSlots}>
               <View style={[styles.decoSlot, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedText style={styles.slotEmoji}>🛏️</ThemedText>
@@ -111,21 +141,17 @@ export default function ZimmerScreen() {
               </View>
             </View>
 
-            {/* Centered egg */}
             <Pressable onPress={triggerWobble} style={styles.eggInteractiveArea}>
               <Animated.View style={[styles.eggContainer, eggAnimatedStyle]}>
-                {/* Visual Egg with HSL Sage-Green styling gradients */}
                 <View style={[styles.eggVisual, { backgroundColor: theme.primary + '30', borderColor: theme.primary }]}>
-                  {/* Spots on egg */}
                   <View style={[styles.eggSpot, { top: '30%', left: '25%', backgroundColor: theme.primary }]} />
                   <View style={[styles.eggSpot, { top: '45%', right: '20%', backgroundColor: theme.secondary }]} />
                   <View style={[styles.eggSpot, { bottom: '25%', left: '45%', backgroundColor: theme.accent }]} />
-                  <ThemedText style={styles.eggEmoji}>🥚</ThemedText>
+                  <ThemedText style={styles.eggEmoji}>{stageEmoji}</ThemedText>
                 </View>
               </Animated.View>
             </Pressable>
 
-            {/* Interaction floating buttons */}
             <View style={styles.roomInteractions}>
               <Pressable onPress={triggerWobble} style={[styles.interactionBtn, { backgroundColor: theme.card }]}>
                 <Heart size={18} color={theme.danger} fill={theme.danger} />
@@ -134,46 +160,78 @@ export default function ZimmerScreen() {
             </View>
           </View>
 
-          {/* Progress / Goal Tracking Card */}
+          {/* Progress Card */}
           <ThemedView type="card" style={styles.progressCard}>
             <View style={styles.progressHeader}>
-              <ThemedText type="smallBold">Entwicklungsstufe: Ei 🥚</ThemedText>
-              <ThemedText type="smallBold" themeColor="primary">V1: Salbeikauz</ThemedText>
+              <ThemedText type="smallBold">
+                Entwicklungsstufe: {stageLabel} {stageEmoji}
+              </ThemedText>
+              <ThemedText type="smallBold" themeColor="primary">
+                {medizini?.species ?? 'Salbeikauz'}
+              </ThemedText>
             </View>
 
             <View style={[styles.progressBarContainer, { backgroundColor: theme.backgroundElement }]}>
-              <View style={[styles.progressBarFill, { backgroundColor: theme.primary, width: '42%' }]} />
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { backgroundColor: theme.primary, width: `${progressPercent}%` },
+                ]}
+              />
             </View>
 
             <View style={styles.progressFooter}>
-              <ThemedText type="small" themeColor="textSecondary">6 von 14 Einnahmen geschafft</ThemedText>
-              <ThemedText type="small" themeColor="primary" style={{ fontWeight: 'bold' }}>42%</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {doseProgress} von {doseTarget} Einnahmen geschafft
+              </ThemedText>
+              <ThemedText type="small" themeColor="primary" style={{ fontWeight: 'bold' }}>
+                {progressPercent}%
+              </ThemedText>
             </View>
           </ThemedView>
 
-          {/* Collect Medicine Energy Button (Primary CTA) */}
-          <Pressable 
-            onPress={triggerWobble}
+          {/* Primary CTA */}
+          <Pressable
+            onPress={() => openOverlay('confirmIntake')}
+            disabled={allTakenToday}
             style={({ pressed }) => [
-              styles.ctaButton, 
-              { backgroundColor: theme.primary, opacity: pressed ? 0.9 : 1 }
+              styles.ctaButton,
+              {
+                backgroundColor: allTakenToday ? theme.backgroundElement : theme.primary,
+                opacity: pressed ? 0.9 : 1,
+              },
             ]}
           >
-            <Leaf size={20} color={theme.white} style={{ marginRight: Spacing.two }} />
-            <ThemedText type="default" style={[styles.ctaText, { color: theme.white }]}>
-              Heilkräuter ernten (Einnahme bestätigen)
+            <Leaf
+              size={20}
+              color={allTakenToday ? theme.textSecondary : theme.white}
+              style={{ marginRight: Spacing.two }}
+            />
+            <ThemedText
+              type="default"
+              style={[
+                styles.ctaText,
+                { color: allTakenToday ? theme.textSecondary : theme.white },
+              ]}
+            >
+              {allTakenToday
+                ? 'Bereits für heute eingenommen ✓'
+                : `Heilkräuter ernten · ${dueMedsCount} offen`}
             </ThemedText>
           </Pressable>
 
-          <View style={styles.infoRow}>
-            <AlertCircle size={16} color={theme.textSecondary} />
-            <ThemedText type="small" themeColor="textSecondary" style={{ marginLeft: Spacing.one }}>
-              Nächste Dosis fällig: Heute, 08:00 Uhr (L-Thyroxin)
-            </ThemedText>
-          </View>
-
+          {nextDose && (
+            <View style={styles.infoRow}>
+              <AlertCircle size={16} color={theme.textSecondary} />
+              <ThemedText type="small" themeColor="textSecondary" style={{ marginLeft: Spacing.one }}>
+                Nächste Dosis: Heute, {nextDose.timeLabel} ({nextDose.name})
+              </ThemedText>
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
+
+      <ConfirmIntakeModal />
     </ThemedView>
   );
 }

@@ -37,14 +37,14 @@ export function useMedications() {
     await db.delete(medicationsTable).where(eq(medicationsTable.id, id));
   }, []);
 
-  // Decrements stock by 1 and returns true if stock has fallen to the warning threshold
+  // Decrements stock by 1, stamps last_taken_at, returns true if stock hits the warning threshold
   const confirmIntake = useCallback(async (id: number): Promise<boolean> => {
     const [med] = await db.select().from(medicationsTable).where(eq(medicationsTable.id, id));
     if (!med) return false;
 
     const newStock = Math.max(0, med.current_stock - 1);
     await db.update(medicationsTable)
-      .set({ current_stock: newStock })
+      .set({ current_stock: newStock, last_taken_at: new Date() })
       .where(eq(medicationsTable.id, id));
 
     return newStock <= LOW_STOCK_THRESHOLD;
@@ -68,6 +68,7 @@ export function useMedications() {
     ...med,
     reminder_times: safeParseJson<string[]>(med.reminder_times, []),
     isLowStock: med.current_stock <= LOW_STOCK_THRESHOLD,
+    last_taken_at: med.last_taken_at ?? null,
   }));
 
   const lowStockCount = parsedMedications.filter((m) => m.isLowStock).length;

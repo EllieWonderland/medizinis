@@ -2,11 +2,12 @@
 
 import journal from './meta/_journal.json';
 import m0000 from './0000_smooth_dark_phoenix.sql';
+import m0001 from './0001_phase3_intake.sql';
 
   export default {
     journal,
     migrations: {
-      m0000
+      m0000,
+      m0001,
     }
   }
-  
