@@ -9,18 +9,30 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#2D3732',
+    background: '#F7F5F0',
+    backgroundElement: '#EBE7DC',
+    backgroundSelected: '#DCD7C9',
+    textSecondary: '#6B7F72',
+    primary: '#7D9B84', // Salbeigrün (Sage green)
+    secondary: '#A390B7', // Soft lavender
+    accent: '#E6B800', // Heilkräuter gold
+    danger: '#D98880', // Terracotta soft red
+    card: '#FFFFFF',
+    white: '#FFFFFF',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#F0EDE6',
+    background: '#181A18',
+    backgroundElement: '#262825',
+    backgroundSelected: '#333732',
+    textSecondary: '#949F96',
+    primary: '#8EA893', // Sage green
+    secondary: '#BFAED3', // Soft lavender
+    accent: '#FFD700', // Heilkräuter gold
+    danger: '#EC9E95', // Terracotta soft red
+    card: '#262825',
+    white: '#FFFFFF',
   },
 } as const;
 
