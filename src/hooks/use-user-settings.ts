@@ -44,5 +44,21 @@ export function useUserSettings() {
     [ensureSettings, addHerbsToStore]
   );
 
-  return { settings, ensureSettings, earnHerbs };
+  // Deducts herbs from DB and Zustand. Returns false if balance is insufficient.
+  const spendHerbs = useCallback(
+    async (amount: number): Promise<boolean> => {
+      const current = await ensureSettings();
+      if (!current || current.global_herb_balance < amount) return false;
+      const newBalance = current.global_herb_balance - amount;
+      await db
+        .update(userSettingsTable)
+        .set({ global_herb_balance: newBalance })
+        .where(eq(userSettingsTable.id, current.id));
+      setHerbBalance(newBalance);
+      return true;
+    },
+    [ensureSettings, setHerbBalance]
+  );
+
+  return { settings, ensureSettings, earnHerbs, spendHerbs };
 }

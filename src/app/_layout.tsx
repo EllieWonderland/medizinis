@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useColorScheme, View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -41,10 +42,12 @@ export default function TabLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AnimatedSplashOverlay />
+        <AppTabs />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 

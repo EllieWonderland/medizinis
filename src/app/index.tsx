@@ -1,15 +1,18 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Pressable, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withSequence,
   withRepeat,
+  runOnJS,
   Easing,
 } from 'react-native-reanimated';
-import { Leaf, AlertCircle, Heart } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { Leaf, AlertCircle } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -25,16 +28,25 @@ import { rescheduleAllNotifications } from '@/lib/notifications';
 
 export default function ZimmerScreen() {
   const theme = useTheme();
-  const { medizini, progressPercent } = useMedizini();
+  const { medizini, progressPercent, isReadyToHatch, hatch } = useMedizini();
   const { medications } = useMedications();
   const { settings } = useUserSettings();
   const herbBalance = useAppStore((s) => s.herbBalance);
   const openOverlay = useAppStore((s) => s.openOverlay);
 
+  // --- Egg animation values ---
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
 
-  // Reschedule notifications only when names or reminder times change, not on every stock/intake update.
+  // Heart particle for swipe-pet feedback
+  const heartY = useSharedValue(0);
+  const heartOpacity = useSharedValue(0);
+
+  // Glow ring for "ready to hatch" state
+  const glowOpacity = useSharedValue(0);
+  const glowScale = useSharedValue(1);
+
+  // --- Notification reschedule ---
   const notificationKey = medications
     .map((m) => `${m.id}:${m.name}:${m.reminder_times.join(',')}`)
     .join('|');
@@ -44,6 +56,44 @@ export default function ZimmerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notificationKey]);
 
+  // --- Idle breathing animation ---
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.03, { duration: 1200, easing: Easing.ease }),
+        withTiming(1, { duration: 1200, easing: Easing.ease })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  // --- Ready-to-hatch glow pulse ---
+  useEffect(() => {
+    if (isReadyToHatch) {
+      glowOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.65, { duration: 700 }),
+          withTiming(0.15, { duration: 700 })
+        ),
+        -1,
+        true
+      );
+      glowScale.value = withRepeat(
+        withSequence(
+          withTiming(1.12, { duration: 700 }),
+          withTiming(1.0, { duration: 700 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      glowOpacity.value = withTiming(0, { duration: 300 });
+      glowScale.value = withTiming(1, { duration: 300 });
+    }
+  }, [isReadyToHatch]);
+
+  // --- Animation helpers (must be plain JS functions for runOnJS) ---
   const triggerWobble = () => {
     rotation.value = withSequence(
       withTiming(-8, { duration: 100, easing: Easing.linear }),
@@ -59,22 +109,74 @@ export default function ZimmerScreen() {
     );
   };
 
-  useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.03, { duration: 1200, easing: Easing.ease }),
-        withTiming(1, { duration: 1200, easing: Easing.ease })
-      ),
-      -1,
-      true
+  const showHeart = () => {
+    heartY.value = 0;
+    heartOpacity.value = 1;
+    heartY.value = withTiming(-70, { duration: 900 });
+    heartOpacity.value = withSequence(
+      withTiming(1, { duration: 100 }),
+      withTiming(0, { duration: 700 })
     );
-  }, []);
+  };
 
+  const triggerHatchCelebration = () => {
+    scale.value = withSequence(
+      withTiming(0.1, { duration: 120 }),
+      withTiming(1.35, { duration: 350, easing: Easing.out(Easing.back(2)) }),
+      withTiming(1, { duration: 200 })
+    );
+  };
+
+  // --- Gesture handlers (called via runOnJS from worklet) ---
+  const handleSwipePet = () => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerWobble();
+    showHeart();
+  };
+
+  const handleTapEgg = () => {
+    if (isReadyToHatch) {
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      triggerHatchCelebration();
+      hatch().catch(console.error);
+    } else {
+      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      triggerWobble();
+    }
+  };
+
+  // --- Gesture definitions ---
+  const panGesture = Gesture.Pan()
+    .minDistance(20)
+    .onEnd((e) => {
+      // Primarily horizontal → streicheln; vertical swipes are likely scroll attempts.
+      if (Math.abs(e.translationX) > Math.abs(e.translationY) && Math.abs(e.translationX) > 20) {
+        runOnJS(handleSwipePet)();
+      }
+    });
+
+  const tapGesture = Gesture.Tap().onEnd(() => {
+    runOnJS(handleTapEgg)();
+  });
+
+  const eggGesture = Gesture.Exclusive(panGesture, tapGesture);
+
+  // --- Animated styles ---
   const eggAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { rotate: `${rotation.value}deg` }],
   }));
 
-  // Derived display data
+  const glowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+    transform: [{ scale: glowScale.value }],
+  }));
+
+  const heartAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: heartY.value }],
+    opacity: heartOpacity.value,
+  }));
+
+  // --- Derived display data ---
   const stage = (medizini?.current_stage ?? 'Egg') as MediziniStage;
   const stageEmoji = STAGE_EMOJIS[stage];
   const stageLabel = STAGE_LABELS[stage];
@@ -89,7 +191,9 @@ export default function ZimmerScreen() {
 
   const nextDose = getNextDoseInfo(medications);
 
-  const owlMessage = allTakenToday
+  const owlMessage = isReadyToHatch
+    ? 'Dein Medizini ist bereit zu schlüpfen! Tippe auf das Ei! ✨'
+    : allTakenToday
     ? 'Super! Du hast heute alle Medikamente genommen. Dein Medizini ist stolz auf dich!'
     : dueMedsCount > 0
     ? `${dueMedsCount} Medikament${dueMedsCount > 1 ? 'e' : ''} noch offen. Vergiss deine Heilenergie nicht!`
@@ -117,13 +221,21 @@ export default function ZimmerScreen() {
           </View>
 
           {/* Owl NPC Dialog Box */}
-          <ThemedView type="backgroundElement" style={styles.npcContainer}>
+          <ThemedView
+            type="backgroundElement"
+            style={[
+              styles.npcContainer,
+              isReadyToHatch && { borderColor: theme.accent, borderWidth: 1.5 },
+            ]}
+          >
             <View style={styles.npcRow}>
-              <View style={[styles.owlAvatar, { backgroundColor: theme.primary }]}>
+              <View style={[styles.owlAvatar, { backgroundColor: isReadyToHatch ? theme.accent : theme.primary }]}>
                 <ThemedText style={styles.owlAvatarText}>🦉</ThemedText>
               </View>
               <View style={styles.npcSpeechBubble}>
-                <ThemedText type="smallBold" themeColor="primary">Eule Hedwig</ThemedText>
+                <ThemedText type="smallBold" themeColor={isReadyToHatch ? 'accent' : 'primary'}>
+                  Eule Hedwig
+                </ThemedText>
                 <ThemedText type="small" themeColor="text" style={styles.npcMessage}>
                   "{owlMessage}"
                 </ThemedText>
@@ -145,23 +257,58 @@ export default function ZimmerScreen() {
               </View>
             </View>
 
-            <Pressable onPress={triggerWobble} style={styles.eggInteractiveArea}>
-              <Animated.View style={[styles.eggContainer, eggAnimatedStyle]}>
-                <View style={[styles.eggVisual, { backgroundColor: theme.primary + '30', borderColor: theme.primary }]}>
-                  <View style={[styles.eggSpot, { top: '30%', left: '25%', backgroundColor: theme.primary }]} />
-                  <View style={[styles.eggSpot, { top: '45%', right: '20%', backgroundColor: theme.secondary }]} />
-                  <View style={[styles.eggSpot, { bottom: '25%', left: '45%', backgroundColor: theme.accent }]} />
-                  <ThemedText style={styles.eggEmoji}>{stageEmoji}</ThemedText>
-                </View>
-              </Animated.View>
-            </Pressable>
+            {/* Egg / Medizini with gesture support */}
+            <GestureDetector gesture={eggGesture}>
+              <View style={styles.eggInteractiveArea}>
+                {/* Ready-to-hatch glow ring */}
+                <Animated.View
+                  style={[
+                    styles.glowRing,
+                    { backgroundColor: theme.accent + '40' },
+                    glowAnimatedStyle,
+                  ]}
+                  pointerEvents="none"
+                />
 
-            <View style={styles.roomInteractions}>
-              <Pressable onPress={triggerWobble} style={[styles.interactionBtn, { backgroundColor: theme.card }]}>
-                <Heart size={18} color={theme.danger} fill={theme.danger} />
-                <ThemedText type="small" style={{ marginLeft: Spacing.one }}>Streicheln</ThemedText>
-              </Pressable>
-            </View>
+                {/* Flying heart particle */}
+                <Animated.View style={[styles.heartParticle, heartAnimatedStyle]} pointerEvents="none">
+                  <ThemedText style={styles.heartEmoji}>💚</ThemedText>
+                </Animated.View>
+
+                <Animated.View style={[styles.eggContainer, eggAnimatedStyle]}>
+                  <View
+                    style={[
+                      styles.eggVisual,
+                      {
+                        backgroundColor: isReadyToHatch
+                          ? theme.accent + '30'
+                          : theme.primary + '30',
+                        borderColor: isReadyToHatch ? theme.accent : theme.primary,
+                      },
+                    ]}
+                  >
+                    <View style={[styles.eggSpot, { top: '30%', left: '25%', backgroundColor: theme.primary }]} />
+                    <View style={[styles.eggSpot, { top: '45%', right: '20%', backgroundColor: theme.secondary }]} />
+                    <View style={[styles.eggSpot, { bottom: '25%', left: '45%', backgroundColor: theme.accent }]} />
+                    <ThemedText style={styles.eggEmoji}>{stageEmoji}</ThemedText>
+                  </View>
+                </Animated.View>
+
+                {isReadyToHatch && (
+                  <View style={[styles.hatchHint, { backgroundColor: theme.accent }]}>
+                    <ThemedText style={styles.hatchHintText}>Tippen zum Schlüpfen!</ThemedText>
+                  </View>
+                )}
+              </View>
+            </GestureDetector>
+
+            {!isReadyToHatch && (
+              <View style={styles.swipeHint}>
+                <ThemedText type="code" style={{ fontSize: 10, color: theme.textSecondary }}>
+                  ← Wischen zum Streicheln →
+                </ThemedText>
+              </View>
+            )}
           </View>
 
           {/* Progress Card */}
@@ -179,16 +326,21 @@ export default function ZimmerScreen() {
               <View
                 style={[
                   styles.progressBarFill,
-                  { backgroundColor: theme.primary, width: `${progressPercent}%` },
+                  {
+                    backgroundColor: isReadyToHatch ? theme.accent : theme.primary,
+                    width: `${progressPercent}%`,
+                  },
                 ]}
               />
             </View>
 
             <View style={styles.progressFooter}>
               <ThemedText type="small" themeColor="textSecondary">
-                {doseProgress} von {doseTarget} Einnahmen geschafft
+                {isReadyToHatch
+                  ? 'Bereit zum Schlüpfen! ✨'
+                  : `${doseProgress} von ${doseTarget} Einnahmen geschafft`}
               </ThemedText>
-              <ThemedText type="small" themeColor="primary" style={{ fontWeight: 'bold' }}>
+              <ThemedText type="small" style={{ fontWeight: 'bold', color: isReadyToHatch ? theme.accent : theme.primary }}>
                 {progressPercent}%
               </ThemedText>
             </View>
@@ -307,7 +459,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   roomContainer: {
-    height: 300,
+    height: 320,
     borderRadius: Spacing.four,
     borderWidth: 2,
     borderStyle: 'dashed',
@@ -341,8 +493,22 @@ const styles = StyleSheet.create({
   eggInteractiveArea: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 200,
-    height: 200,
+    width: 220,
+    height: 220,
+  },
+  glowRing: {
+    position: 'absolute',
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+  },
+  heartParticle: {
+    position: 'absolute',
+    top: 10,
+    zIndex: 10,
+  },
+  heartEmoji: {
+    fontSize: 28,
   },
   eggContainer: {
     width: 140,
@@ -371,23 +537,21 @@ const styles = StyleSheet.create({
     fontSize: 80,
     opacity: 0.9,
   },
-  roomInteractions: {
+  hatchHint: {
     position: 'absolute',
-    bottom: Spacing.three,
-    flexDirection: 'row',
-    gap: Spacing.two,
+    bottom: 4,
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.two,
+    borderRadius: 12,
   },
-  interactionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+  hatchHintText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  swipeHint: {
+    position: 'absolute',
+    bottom: Spacing.two,
   },
   progressCard: {
     padding: Spacing.three,

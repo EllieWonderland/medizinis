@@ -25,7 +25,7 @@ import { useMedications } from '@/hooks/use-medications';
 import { useMedizini } from '@/hooks/use-medizini';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { useAppStore } from '@/store';
-import { isDoseTakenToday, STAGE_EMOJIS, STAGE_LABELS, type MediziniStage } from '@/lib/dose-logic';
+import { isDoseTakenToday } from '@/lib/dose-logic';
 
 const HERBS_PER_MED = 3;
 
@@ -39,7 +39,6 @@ export function ConfirmIntakeModal() {
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [phase, setPhase] = useState<'select' | 'success'>('select');
   const [earnedHerbs, setEarnedHerbs] = useState(0);
-  const [newStage, setNewStage] = useState<MediziniStage | null>(null);
 
   const successScale = useSharedValue(0.8);
   const successOpacity = useSharedValue(0);
@@ -57,7 +56,6 @@ export function ConfirmIntakeModal() {
       setCheckedIds(new Set());
       setPhase('select');
       setEarnedHerbs(0);
-      setNewStage(null);
     }
   }, [activeOverlay]);
 
@@ -85,9 +83,8 @@ export function ConfirmIntakeModal() {
       await confirmIntake(id);
     }
 
-    // Advance medizini progress once per confirmed medication
-    const { advanced, newStage: stage } = await confirmDoseProgress(checkedIds.size);
-    if (advanced && stage) setNewStage(stage);
+    // Advance medizini progress once per confirmed medication (stage change happens via egg tap)
+    await confirmDoseProgress(checkedIds.size);
 
     // Award herbs
     const herbs = HERBS_PER_MED * checkedIds.size;
@@ -246,19 +243,8 @@ export function ConfirmIntakeModal() {
                 +{earnedHerbs} Heilkräuter
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={styles.successSub}>
-                Dein Medizini wächst!
+                Dein Medizini wächst! Tippe auf das Ei, wenn es bereit ist zu schlüpfen. 🥚
               </ThemedText>
-
-              {newStage && (
-                <View style={[styles.stageUpBadge, { backgroundColor: theme.accent + '22', borderColor: theme.accent }]}>
-                  <ThemedText style={{ fontSize: 28 }}>
-                    {STAGE_EMOJIS[newStage]}
-                  </ThemedText>
-                  <ThemedText type="smallBold" style={{ color: theme.accent }}>
-                    Neue Stufe: {STAGE_LABELS[newStage]}!
-                  </ThemedText>
-                </View>
-              )}
 
               <Pressable
                 onPress={closeOverlay}
@@ -380,14 +366,5 @@ const styles = StyleSheet.create({
   },
   successSub: {
     textAlign: 'center',
-  },
-  stageUpBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-    borderWidth: 1.5,
-    marginTop: Spacing.two,
   },
 });

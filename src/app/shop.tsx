@@ -1,110 +1,90 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Pressable, ScrollView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { StyleSheet, View, Pressable, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Leaf, Lock, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { Leaf, Lock, CheckCircle2, AlertCircle, ShoppingBag } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useAppStore } from '@/store';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useRoomState, type SlotKey } from '@/hooks/use-room-state';
+import { useMedizini } from '@/hooks/use-medizini';
+import { type MediziniStage } from '@/lib/dose-logic';
+
+type ShopItem = {
+  id: string;
+  name: string;
+  slot: SlotKey;
+  cost: number;
+  emoji: string;
+  description: string;
+  requiredStage?: MediziniStage;
+};
+
+const SHOP_ITEMS: ShopItem[] = [
+  // Bett
+  { id: 'b1', name: 'Moosbett', slot: 'Bett', cost: 0, emoji: '🛏️', description: 'Ein weiches, natürliches Bett aus Waldmoos.' },
+  { id: 'b2', name: 'Lavendelkissen', slot: 'Bett', cost: 80, emoji: '🛌', description: 'Sorgt für tiefen, ruhigen Schlaf und duftet herrlich.' },
+  // Boden
+  { id: 'f1', name: 'Rindenboden', slot: 'Boden', cost: 60, emoji: '🪵', description: 'Robuster und natürlicher Holzboden.' },
+  { id: 'f2', name: 'Kleeblattteppich', slot: 'Boden', cost: 100, emoji: '🍀', description: 'Bringt Glück und ein sanftes Laufgefühl.', requiredStage: 'Baby' },
+  // Wand
+  { id: 'w1', name: 'Blättertuch', slot: 'Wand', cost: 45, emoji: '🍃', description: 'Ziert die Wände mit frischem Frühlingsgrün.' },
+  { id: 'w2', name: 'Mondstein-Tapete', slot: 'Wand', cost: 110, emoji: '🌙', description: 'Leuchtet sanft in der Nacht und beruhigt den Geist.', requiredStage: 'Child' },
+  // Deko
+  { id: 'd1', name: 'Salbeipflanze', slot: 'Deko', cost: 30, emoji: '🌿', description: 'Verströmt beruhigende Dämpfe im ganzen Zimmer.' },
+  { id: 'd2', name: 'Kristalllampe', slot: 'Deko', cost: 120, emoji: '🔮', description: 'Spendet warmes, magisches Licht für dunkle Nächte.', requiredStage: 'Child' },
+];
+
+const STAGE_ORDER: MediziniStage[] = ['Egg', 'Baby', 'Child', 'Teen', 'Adult'];
+
+function isStageUnlocked(required: MediziniStage | undefined, current: MediziniStage): boolean {
+  if (!required) return true;
+  return STAGE_ORDER.indexOf(current) >= STAGE_ORDER.indexOf(required);
+}
 
 export default function ShopScreen() {
   const theme = useTheme();
   const herbBalance = useAppStore((s) => s.herbBalance);
-  const [activeCategory, setActiveCategory] = useState<'Bett' | 'Boden' | 'Wand' | 'Deko'>('Bett');
-  
-  // Custom categories list
-  const categories: ('Bett' | 'Boden' | 'Wand' | 'Deko')[] = ['Bett', 'Boden', 'Wand', 'Deko'];
+  const { spendHerbs } = useUserSettings();
+  const { getSlotItem, placeItem } = useRoomState();
+  const { medizini } = useMedizini();
+  const currentStage = (medizini?.current_stage ?? 'Egg') as MediziniStage;
 
-  // Mock list of shop items
-  const shopItems = [
-    // Bett Category
-    {
-      id: 'b1',
-      name: 'Moosbett',
-      category: 'Bett',
-      cost: 50,
-      emoji: '🛏️',
-      description: 'Ein weiches, natürliches Bett aus Waldmoos.',
-      unlocked: true,
-      purchased: true,
-    },
-    {
-      id: 'b2',
-      name: 'Lavendelkissen',
-      category: 'Bett',
-      cost: 80,
-      emoji: '🛌',
-      description: 'Sorgt für tiefen, ruhigen Schlaf und duftet herrlich.',
-      unlocked: true,
-      purchased: false,
-    },
-    // Boden Category
-    {
-      id: 'f1',
-      name: 'Rindenboden',
-      category: 'Boden',
-      cost: 60,
-      emoji: '🪵',
-      description: 'Robuster und natürlicher Holzboden.',
-      unlocked: true,
-      purchased: false,
-    },
-    {
-      id: 'f2',
-      name: 'Kleeblattteppich',
-      category: 'Boden',
-      cost: 100,
-      emoji: '🍀',
-      description: 'Bringt Glück und ein sanftes Laufgefühl.',
-      unlocked: false, // Locked until Baby stage
-      requiredStage: 'Baby',
-      purchased: false,
-    },
-    // Wand Category
-    {
-      id: 'w1',
-      name: 'Blättertuch',
-      category: 'Wand',
-      cost: 45,
-      emoji: '🍃',
-      description: 'Ziert die Wände mit frischem Frühlingsgrün.',
-      unlocked: true,
-      purchased: false,
-    },
-    // Deko Category
-    {
-      id: 'd1',
-      name: 'Salbeipflanze',
-      category: 'Deko',
-      cost: 30,
-      emoji: '🌿',
-      description: 'Verströmt beruhigende Dämpfe im ganzen Zimmer.',
-      unlocked: true,
-      purchased: false,
-    },
-    {
-      id: 'd2',
-      name: 'Kristalllampe',
-      category: 'Deko',
-      cost: 120,
-      emoji: '🔮',
-      description: 'Spendet warmes, magisches Licht für dunkle Nächte.',
-      unlocked: false, // Locked until Child stage
-      requiredStage: 'Kind',
-      purchased: false,
+  const [activeCategory, setActiveCategory] = useState<SlotKey>('Bett');
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
+
+  const categories: SlotKey[] = ['Bett', 'Boden', 'Wand', 'Deko'];
+  const filteredItems = SHOP_ITEMS.filter((item) => item.slot === activeCategory);
+
+  const handleBuy = useCallback(async (item: ShopItem) => {
+    if (buyingId) return;
+    setBuyingId(item.id);
+    setErrorId(null);
+
+    const success = await spendHerbs(item.cost);
+    if (!success) {
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setErrorId(item.id);
+      setTimeout(() => setErrorId(null), 2000);
+      setBuyingId(null);
+      return;
     }
-  ];
 
-  // Filter items based on active category
-  const filteredItems = shopItems.filter(item => item.category === activeCategory);
+    await placeItem(item.slot, item.id);
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setBuyingId(null);
+  }, [buyingId, spendHerbs, placeItem]);
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent} 
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Header Bar */}
@@ -130,7 +110,7 @@ export default function ShopScreen() {
               <View style={styles.npcSpeechBubble}>
                 <ThemedText type="smallBold" themeColor="secondary">Verkäuferin Hedwig</ThemedText>
                 <ThemedText type="small" themeColor="text" style={styles.npcMessage}>
-                  "Willkommen im Kräuter-Basar, Reisender! Tausche deine geernteten Heilkräuter gegen schöne Möbel ein, um das Zimmer deines Medizinis zu verschönern!"
+                  "Willkommen im Kräuter-Basar! Tausche deine Heilkräuter gegen schöne Möbel ein."
                 </ThemedText>
               </View>
             </View>
@@ -138,7 +118,7 @@ export default function ShopScreen() {
 
           {/* Category Tabs */}
           <View style={styles.tabsContainer}>
-            {categories.map(cat => {
+            {categories.map((cat) => {
               const isActive = activeCategory === cat;
               return (
                 <Pressable
@@ -146,14 +126,14 @@ export default function ShopScreen() {
                   onPress={() => setActiveCategory(cat)}
                   style={[
                     styles.tabButton,
-                    { 
+                    {
                       backgroundColor: isActive ? theme.primary : theme.backgroundElement,
-                      borderColor: isActive ? theme.primary : 'transparent'
-                    }
+                      borderColor: isActive ? theme.primary : 'transparent',
+                    },
                   ]}
                 >
-                  <ThemedText 
-                    type="smallBold" 
+                  <ThemedText
+                    type="smallBold"
                     style={{ color: isActive ? theme.white : theme.textSecondary }}
                   >
                     {cat}
@@ -163,42 +143,54 @@ export default function ShopScreen() {
             })}
           </View>
 
-          {/* Shop Items List/Grid */}
+          {/* Shop Items */}
           <View style={styles.gridContainer}>
-            {filteredItems.map(item => {
+            {filteredItems.map((item) => {
+              const placedItemId = getSlotItem(item.slot);
+              const isPlaced = placedItemId === item.id;
+              const isFree = item.cost === 0;
+              const unlocked = isStageUnlocked(item.requiredStage, currentStage);
+              const canAfford = herbBalance >= item.cost;
+              const isLoading = buyingId === item.id;
+              const showError = errorId === item.id;
+
               return (
                 <ThemedView key={item.id} type="card" style={styles.itemCard}>
-                  {/* Top Row: Icon and Status */}
                   <View style={styles.cardHeader}>
                     <View style={[styles.itemEmojiContainer, { backgroundColor: theme.backgroundElement }]}>
                       <ThemedText style={styles.itemEmoji}>{item.emoji}</ThemedText>
                     </View>
-                    
-                    {!item.unlocked ? (
+
+                    {!unlocked ? (
                       <View style={[styles.statusBadge, { backgroundColor: theme.backgroundElement }]}>
                         <Lock size={12} color={theme.textSecondary} />
                         <ThemedText type="code" style={{ fontSize: 10, marginLeft: 4, color: theme.textSecondary }}>
-                          Sperre: {item.requiredStage}
+                          Ab Stufe: {item.requiredStage}
                         </ThemedText>
                       </View>
-                    ) : item.purchased ? (
+                    ) : isPlaced ? (
                       <View style={[styles.statusBadge, { backgroundColor: theme.primary + '15' }]}>
                         <CheckCircle2 size={12} color={theme.primary} />
                         <ThemedText type="code" style={{ fontSize: 10, marginLeft: 4, color: theme.primary, fontWeight: 'bold' }}>
-                          Gekauft
+                          Platziert
                         </ThemedText>
                       </View>
                     ) : (
-                      <View style={[styles.priceBadge, { backgroundColor: theme.accent + '15' }]}>
-                        <Leaf size={12} color={theme.accent} fill={theme.accent} />
-                        <ThemedText type="smallBold" style={{ color: theme.text, marginLeft: 4 }}>
-                          {item.cost}
-                        </ThemedText>
+                      <View style={[styles.priceBadge, { backgroundColor: isFree ? theme.primary + '15' : theme.accent + '15' }]}>
+                        {isFree ? (
+                          <ThemedText type="code" style={{ fontSize: 10, color: theme.primary, fontWeight: 'bold' }}>Gratis</ThemedText>
+                        ) : (
+                          <>
+                            <Leaf size={12} color={theme.accent} fill={theme.accent} />
+                            <ThemedText type="smallBold" style={{ color: canAfford ? theme.text : theme.danger, marginLeft: 4 }}>
+                              {item.cost}
+                            </ThemedText>
+                          </>
+                        )}
                       </View>
                     )}
                   </View>
 
-                  {/* Info details */}
                   <View style={styles.cardBody}>
                     <ThemedText type="default" style={{ fontWeight: 'bold' }}>{item.name}</ThemedText>
                     <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
@@ -206,37 +198,56 @@ export default function ShopScreen() {
                     </ThemedText>
                   </View>
 
-                  {/* Buy / Action Button */}
-                  <Pressable 
-                    disabled={!item.unlocked || item.purchased}
+                  {showError && (
+                    <View style={[styles.errorRow, { backgroundColor: theme.danger + '15' }]}>
+                      <AlertCircle size={12} color={theme.danger} />
+                      <ThemedText type="code" style={{ fontSize: 11, color: theme.danger, marginLeft: 4 }}>
+                        Nicht genug Kräuter!
+      </ThemedText>
+                    </View>
+                  )}
+
+                  <Pressable
+                    disabled={!unlocked || isPlaced || isLoading}
+                    onPress={() => handleBuy(item)}
                     style={({ pressed }) => [
-                      styles.actionBtn, 
-                      { 
-                        backgroundColor: !item.unlocked 
-                          ? theme.backgroundElement 
-                          : item.purchased 
-                          ? theme.backgroundSelected 
+                      styles.actionBtn,
+                      {
+                        backgroundColor: !unlocked
+                          ? theme.backgroundElement
+                          : isPlaced
+                          ? theme.backgroundSelected
+                          : isLoading
+                          ? theme.backgroundElement
                           : theme.primary,
-                        opacity: pressed ? 0.9 : 1
-                      }
+                        opacity: pressed ? 0.9 : 1,
+                      },
                     ]}
                   >
-                    <ThemedText 
-                      type="smallBold" 
-                      style={{ 
-                        color: !item.unlocked 
-                          ? theme.textSecondary 
-                          : item.purchased 
-                          ? theme.text 
-                          : theme.white 
+                    {!isPlaced && unlocked && !isLoading && (
+                      <ShoppingBag size={14} color={theme.white} style={{ marginRight: 6 }} />
+                    )}
+                    <ThemedText
+                      type="smallBold"
+                      style={{
+                        color: !unlocked
+                          ? theme.textSecondary
+                          : isPlaced
+                          ? theme.text
+                          : isLoading
+                          ? theme.textSecondary
+                          : theme.white,
                       }}
                     >
-                      {!item.unlocked 
-                        ? 'Gesperrt' 
-                        : item.purchased 
-                        ? 'Bereits platziert' 
-                        : 'Kaufen & Platzieren'
-                      }
+                      {!unlocked
+                        ? 'Gesperrt'
+                        : isPlaced
+                        ? 'Bereits platziert'
+                        : isLoading
+                        ? 'Wird gekauft…'
+                        : isFree
+                        ? 'Gratis platzieren'
+                        : 'Kaufen & Platzieren'}
                     </ThemedText>
                   </Pressable>
                 </ThemedView>
@@ -247,10 +258,9 @@ export default function ShopScreen() {
           <View style={styles.infoRow}>
             <AlertCircle size={14} color={theme.textSecondary} />
             <ThemedText type="small" themeColor="textSecondary" style={{ marginLeft: Spacing.one }}>
-              Neue Gegenstände werden freigeschaltet, sobald dein Medizini wächst.
+              Neue Gegenstände schalten sich frei, wenn dein Medizini wächst.
             </ThemedText>
           </View>
-
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -380,7 +390,14 @@ const styles = StyleSheet.create({
   cardBody: {
     gap: Spacing.half,
   },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.two,
+    borderRadius: Spacing.two,
+  },
   actionBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Spacing.two,
