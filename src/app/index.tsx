@@ -193,6 +193,8 @@ export default function ZimmerScreen() {
 
   const owlMessage = isReadyToHatch
     ? 'Dein Medizini ist bereit zu schlüpfen! Tippe auf das Ei! ✨'
+    : stage === 'Adult'
+    ? 'Dein Medizini ist ausgewachsen! Die nächste Einnahme schickt es in den wohlverdienten Ruhestand und schaltet es im Buch frei. 🎓'
     : allTakenToday
     ? 'Super! Du hast heute alle Medikamente genommen. Dein Medizini ist stolz auf dich!'
     : dueMedsCount > 0

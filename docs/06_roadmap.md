@@ -9,11 +9,6 @@
 
 ## ToDo MVP-Entwicklung
 
-### Phase 5: Medizini-Buch & Epilog
-
-- Ansicht des Medizini-Buchs (Ausgegraute Silhouetten für unentdeckte Wesen).
-- **Ruhestands-Logik:** Erwachsenes Wesen verlässt bei der _nächsten_ Einnahme den Raum, hinterlässt ein neues Ei und wird im Buch dauerhaft freigeschaltet.
-
 ## ToDo Post-MVP (Out of Scope für V1)
 
 - Zucht von Medizinis (V4).
@@ -21,6 +16,11 @@
 - Blutzucker- und Blutdruck-Tracking.
 
 ## Done
+
+### Phase 5: Medizini-Buch & Epilog (abgeschlossen: 2026-05-30)
+
+- [x] Ansicht des Medizini-Buchs (Ausgegraute Silhouetten für unentdeckte Wesen).
+- [x] **Ruhestands-Logik:** Erwachsenes Wesen verlässt bei der _nächsten_ Einnahme den Raum, hinterlässt ein neues Ei und wird im Buch dauerhaft freigeschaltet.
 
 ### Phase 4: Gamification & Shop (abgeschlossen: 2026-05-30)
 

@@ -46,8 +46,19 @@ export function useMedizini() {
 
   // Increments progress toward the next stage. Capped at the target — stage advances only
   // when the user taps the egg (see `hatch`).
-  const confirmDoseProgress = useCallback(async (count: number = 1): Promise<void> => {
-    if (!medizini) return;
+  // Exception: Adult stage has no next stage — the next dose triggers retirement instead.
+  const confirmDoseProgress = useCallback(async (count: number = 1): Promise<{ retired: boolean; species: string }> => {
+    if (!medizini) return { retired: false, species: '' };
+
+    // Adult medizini retires on the very next intake confirmation.
+    if (medizini.current_stage === 'Adult') {
+      await db
+        .update(medizinisTable)
+        .set({ is_active: false, is_retired: true, last_medication_date: new Date() })
+        .where(eq(medizinisTable.id, medizini.id));
+      return { retired: true, species: medizini.species };
+    }
+
     const newProgress = Math.min(
       medizini.current_doses_progress + count,
       medizini.target_doses_for_next_stage
@@ -59,6 +70,7 @@ export function useMedizini() {
         last_medication_date: new Date(),
       })
       .where(eq(medizinisTable.id, medizini.id));
+    return { retired: false, species: '' };
   }, [medizini]);
 
   // Advances to the next stage when the egg is ready. Called by the tap gesture on the egg.

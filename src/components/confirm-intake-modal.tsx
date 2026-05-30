@@ -37,8 +37,9 @@ export function ConfirmIntakeModal() {
   const { settings, earnHerbs } = useUserSettings();
 
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
-  const [phase, setPhase] = useState<'select' | 'success'>('select');
+  const [phase, setPhase] = useState<'select' | 'success' | 'retirement'>('select');
   const [earnedHerbs, setEarnedHerbs] = useState(0);
+  const [retiredSpecies, setRetiredSpecies] = useState('');
 
   const successScale = useSharedValue(0.8);
   const successOpacity = useSharedValue(0);
@@ -56,6 +57,7 @@ export function ConfirmIntakeModal() {
       setCheckedIds(new Set());
       setPhase('select');
       setEarnedHerbs(0);
+      setRetiredSpecies('');
     }
   }, [activeOverlay]);
 
@@ -84,7 +86,7 @@ export function ConfirmIntakeModal() {
     }
 
     // Advance medizini progress once per confirmed medication (stage change happens via egg tap)
-    await confirmDoseProgress(checkedIds.size);
+    const { retired, species } = await confirmDoseProgress(checkedIds.size);
 
     // Award herbs
     const herbs = HERBS_PER_MED * checkedIds.size;
@@ -98,7 +100,13 @@ export function ConfirmIntakeModal() {
     // Animate success screen in
     successScale.value = withSpring(1, { damping: 12 });
     successOpacity.value = withTiming(1, { duration: 300 });
-    setPhase('success');
+
+    if (retired) {
+      setRetiredSpecies(species);
+      setPhase('retirement');
+    } else {
+      setPhase('success');
+    }
   }, [checkedIds, confirmIntake, confirmDoseProgress, earnHerbs]);
 
   const successAnimStyle = useAnimatedStyle(() => ({
@@ -120,7 +128,11 @@ export function ConfirmIntakeModal() {
           {/* Header */}
           <View style={styles.header}>
             <ThemedText type="subtitle" style={styles.headerTitle}>
-              {phase === 'success' ? '🌿 Heilkräuter geerntet!' : '💊 Einnahme bestätigen'}
+              {phase === 'success'
+              ? '🌿 Heilkräuter geerntet!'
+              : phase === 'retirement'
+              ? '🎓 Ruhestand!'
+              : '💊 Einnahme bestätigen'}
             </ThemedText>
             <Pressable onPress={closeOverlay} style={styles.closeBtn} hitSlop={8}>
               <X size={20} color={theme.textSecondary} />
@@ -235,8 +247,8 @@ export function ConfirmIntakeModal() {
                 </>
               )}
             </>
-          ) : (
-            // Success screen
+          ) : phase === 'success' ? (
+            // Regular success screen
             <Animated.View style={[styles.successContainer, successAnimStyle]}>
               <ThemedText style={styles.successEmoji}>🌿</ThemedText>
               <ThemedText type="subtitle" style={styles.successTitle}>
@@ -252,6 +264,29 @@ export function ConfirmIntakeModal() {
               >
                 <ThemedText type="default" style={[styles.confirmBtnText, { color: theme.white }]}>
                   Schließen
+                </ThemedText>
+              </Pressable>
+            </Animated.View>
+          ) : (
+            // Retirement screen
+            <Animated.View style={[styles.successContainer, successAnimStyle]}>
+              <ThemedText style={styles.successEmoji}>🎓</ThemedText>
+              <ThemedText type="subtitle" style={styles.successTitle}>
+                {retiredSpecies} geht in Rente!
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.successSub}>
+                Dein Medizini wurde dauerhaft im Buch freigeschaltet. Ein neues Ei wartet schon auf dich! 🥚📖
+              </ThemedText>
+              <ThemedText type="small" themeColor="primary" style={{ fontWeight: 'bold' }}>
+                +{earnedHerbs} 🌿 Heilkräuter
+              </ThemedText>
+
+              <Pressable
+                onPress={closeOverlay}
+                style={[styles.confirmBtn, { backgroundColor: theme.primary, marginTop: Spacing.four }]}
+              >
+                <ThemedText type="default" style={[styles.confirmBtnText, { color: theme.white }]}>
+                  Zum Buch schauen
                 </ThemedText>
               </Pressable>
             </Animated.View>

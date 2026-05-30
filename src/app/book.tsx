@@ -2,71 +2,76 @@ import React, { useState } from 'react';
 import { StyleSheet, View, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BookOpen, Award, Lock, X } from 'lucide-react-native';
+import { eq } from 'drizzle-orm';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
+import { db } from '@/db';
+import { medizinisTable } from '@/db/schema';
+
+// Static species catalog. Discovery is unlocked by actually retiring a Medizini of that species.
+const SPECIES_CATALOG = [
+  {
+    id: 'm1',
+    name: 'Salbeikauz',
+    scientificName: 'Strix Salvia',
+    emoji: '🦉',
+    description: 'Ein flauschiges Wesen, das in der Nähe von Salbeifeldern lebt. Es verströmt beruhigende Aura und liebt es, gestreichelt zu werden. Es erinnert dich treu an deine Aufgaben.',
+    lore: 'Der Salbeikauz nistet am liebsten in warmen Nischen von Medizinschränken. Seine weichen Federn glänzen grünlich im Mondlicht. Er schlüpft aus salbeifarbenen Eiern und wächst heran, um ein verlässlicher Partner zu werden.',
+    stats: {
+      'Element': 'Natur / Ruhe 🌿',
+      'Lieblingsessen': 'Kamillenblüten 🌼',
+      'Fundort': 'Anfangs-Ei 🥚',
+    },
+  },
+  {
+    id: 'm2',
+    name: 'Baldrianbär',
+    scientificName: 'Ursus Valeriana',
+    emoji: '🐻',
+    description: 'Ein verschlafener Bär, dessen Fell nach Baldrian duftet. Seine Anwesenheit vertreibt jede nächtliche Unruhe.',
+    lore: 'Es heißt, der Baldrianbär schläft 23 Stunden am Tag. Wer sein Vertrauen gewinnt, darf sich an sein weiches, schlafförderndes Fell kuscheln.',
+    stats: {},
+  },
+  {
+    id: 'm3',
+    name: 'Lavendelluchs',
+    scientificName: 'Lynx Lavandula',
+    emoji: '🐱',
+    description: 'Ein graziles Wesen, das mit eleganten Sprüngen durch lilafarbene Felder zieht. Seine Aura schenkt Gelassenheit.',
+    lore: 'Der Lavendelluchs taucht nur in Momenten tiefster Entspannung auf. Seine Schnurrhaare vibrieren im Takt beruhigender Gedanken.',
+    stats: {},
+  },
+  {
+    id: 'm4',
+    name: 'Kamillenkröte',
+    scientificName: 'Bufo Chamomilla',
+    emoji: '🐸',
+    description: 'Eine weise Kröte, die auf großen Kamillenblättern thront und heilende Tinkturen brauen kann.',
+    lore: 'Die Kamillenkröte spricht in Rätseln, aber ihre Kamillentee-Aufgüsse kurieren jeden Kummer und besänftigen den Magen.',
+    stats: {},
+  },
+];
 
 export default function MediziniBuchScreen() {
   const theme = useTheme();
   const [selectedPet, setSelectedPet] = useState<any | null>(null);
 
-  // Mock list of all Wesen in the book
-  const medizinis = [
-    {
-      id: 'm1',
-      name: 'Salbeikauz',
-      scientificName: 'Strix Salvia',
-      emoji: '🦉',
-      discovered: true,
-      description: 'Ein flauschiges Wesen, das in der Nähe von Salbeifeldern lebt. Es verströmt beruhigende Aura und liebt es, gestreichelt zu werden. Es erinnert dich treu an deine Aufgaben.',
-      stage: 'Ei / Baby',
-      retired: false,
-      lore: 'Der Salbeikauz nistet am liebsten in warmen Nischen von Medizinschränken. Seine weichen Federn glänzen grünlich im Mondlicht. Er schlüpft aus salbeifarbenen Eiern und wächst heran, um ein verlässlicher Partner zu werden.',
-      stats: {
-        'Element': 'Natur / Ruhe 🌿',
-        'Lieblingsessen': 'Kamillenblüten 🌼',
-        'Fundort': 'Anfangs-Ei 🥚'
-      }
-    },
-    {
-      id: 'm2',
-      name: 'Baldrianbär',
-      scientificName: 'Ursus Valeriana',
-      emoji: '🐻',
-      discovered: false, // Silhouette
-      description: 'Ein verschlafener Bär, dessen Fell nach Baldrian duftet. Seine Anwesenheit vertreibt jede nächtliche Unruhe.',
-      stage: 'Unbekannt',
-      retired: false,
-      lore: 'Es heißt, der Baldrianbär schläft 23 Stunden am Tag. Wer sein Vertrauen gewinnt, darf sich an sein weiches, schlafförderndes Fell kuscheln.',
-      stats: {}
-    },
-    {
-      id: 'm3',
-      name: 'Lavendelluchs',
-      scientificName: 'Lynx Lavandula',
-      emoji: '🐱',
-      discovered: false, // Silhouette
-      description: 'Ein graziles Wesen, das mit eleganten Sprüngen durch lilafarbene Felder zieht. Seine Aura schenkt Gelassenheit.',
-      stage: 'Unbekannt',
-      retired: false,
-      lore: 'Der Lavendelluchs taucht nur in Momenten tiefster Entspannung auf. Seine Schnurrhaare vibrieren im Takt beruhigender Gedanken.',
-      stats: {}
-    },
-    {
-      id: 'm4',
-      name: 'Kamillenkröte',
-      scientificName: 'Bufo Chamomilla',
-      emoji: '🐸',
-      discovered: false, // Silhouette
-      description: 'Eine weise Kröte, die auf großen Kamillenblättern thront und heilende Tinkturen brauen kann.',
-      stage: 'Unbekannt',
-      retired: false,
-      lore: 'Die Kamillenkröte spricht in Rätseln, aber ihre Kamillentee-Aufgüsse kurieren jeden Kummer und besänftigen den Magen.',
-      stats: {}
-    }
-  ];
+  // Live query: which species have at least one retired Medizini?
+  const { data: retiredRows = [] } = useLiveQuery(
+    db.select({ species: medizinisTable.species })
+      .from(medizinisTable)
+      .where(eq(medizinisTable.is_retired, true))
+  );
+  const discoveredSpecies = new Set(retiredRows.map((r) => r.species));
+
+  const medizinis = SPECIES_CATALOG.map((s) => ({
+    ...s,
+    discovered: discoveredSpecies.has(s.name),
+  }));
 
   return (
     <ThemedView style={styles.container}>
@@ -84,7 +89,7 @@ export default function MediziniBuchScreen() {
             <View style={[styles.statsBadge, { backgroundColor: theme.backgroundElement }]}>
               <Award size={16} color={theme.primary} />
               <ThemedText type="smallBold" style={{ color: theme.text, marginLeft: Spacing.one }}>
-                1 / 4 Entdeckt
+                {discoveredSpecies.size} / {SPECIES_CATALOG.length} Entdeckt
               </ThemedText>
             </View>
           </View>
